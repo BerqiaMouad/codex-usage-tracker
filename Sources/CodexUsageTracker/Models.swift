@@ -90,6 +90,9 @@ struct UsageSnapshot: Equatable, Sendable {
     let thisMonth: UsageSlice
     let lastMonth: UsageSlice
     let today: UsageSlice
+    let thisMonthExcludedThreads: Int
+    let lastMonthExcludedThreads: Int
+    let todayExcludedThreads: Int
     let selectedRange: UsageSlice
     let selectedRangeLabel: String
     let selectedRangeExcludedThreads: Int

@@ -67,6 +67,11 @@ struct DashboardView: View {
             if let snapshot = store.snapshot {
                 Text("Selected range: \(snapshot.selectedRangeLabel)")
                     .font(.callout.weight(.medium))
+                if snapshot.lastMonthExcludedThreads > 0 {
+                    Text("Last Month excludes \(snapshot.lastMonthExcludedThreads) older threads that lacked a usable pre-month checkpoint.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 if snapshot.selectedRangeExcludedThreads > 0 {
                     Text("\(snapshot.selectedRangeExcludedThreads) older threads were excluded from the selected range because no pre-range checkpoint was available.")
                         .font(.callout)

@@ -82,6 +82,9 @@ actor CodexDataLoader {
         var thisMonth = UsageSlice.zero
         var lastMonth = UsageSlice.zero
         var today = UsageSlice.zero
+        var thisMonthExcludedThreads = 0
+        var lastMonthExcludedThreads = 0
+        var todayExcludedThreads = 0
         var selectedRange = UsageSlice.zero
         var threadsWithDetailedBreakdown = 0
         var selectedRangeExcludedThreads = 0
@@ -134,7 +137,7 @@ actor CodexDataLoader {
                 recordUpdatedAt: record.updatedAt,
                 windowStart: currentMonthStart,
                 windowEnd: nil
-            ) ?? .zero
+            )
             let lastMonthSlice = UsageWindowMath.usageBetween(
                 final: final,
                 startBoundaryUsage: summary.boundaryUsage["previousMonthStart"],
@@ -143,7 +146,7 @@ actor CodexDataLoader {
                 recordUpdatedAt: record.updatedAt,
                 windowStart: previousMonthStart,
                 windowEnd: currentMonthStart
-            ) ?? .zero
+            )
             let todaySlice = UsageWindowMath.usageBetween(
                 final: final,
                 startBoundaryUsage: summary.boundaryUsage["dayStart"],
@@ -152,7 +155,7 @@ actor CodexDataLoader {
                 recordUpdatedAt: record.updatedAt,
                 windowStart: dayStart,
                 windowEnd: nil
-            ) ?? .zero
+            )
             let selectedRangeSlice = selectedRangeSlice(
                 selectedWindow: selectedWindow,
                 summary: summary,
@@ -165,9 +168,36 @@ actor CodexDataLoader {
             }
 
             allTime = allTime + final
-            thisMonth = thisMonth + thisMonthSlice
-            lastMonth = lastMonth + lastMonthSlice
-            today = today + todaySlice
+            if let thisMonthSlice {
+                thisMonth = thisMonth + thisMonthSlice
+            } else if UsageWindowMath.intersectsWindow(
+                recordCreatedAt: record.createdAt,
+                recordUpdatedAt: record.updatedAt,
+                windowStart: currentMonthStart,
+                windowEnd: nil
+            ) {
+                thisMonthExcludedThreads += 1
+            }
+            if let lastMonthSlice {
+                lastMonth = lastMonth + lastMonthSlice
+            } else if UsageWindowMath.intersectsWindow(
+                recordCreatedAt: record.createdAt,
+                recordUpdatedAt: record.updatedAt,
+                windowStart: previousMonthStart,
+                windowEnd: currentMonthStart
+            ) {
+                lastMonthExcludedThreads += 1
+            }
+            if let todaySlice {
+                today = today + todaySlice
+            } else if UsageWindowMath.intersectsWindow(
+                recordCreatedAt: record.createdAt,
+                recordUpdatedAt: record.updatedAt,
+                windowStart: dayStart,
+                windowEnd: nil
+            ) {
+                todayExcludedThreads += 1
+            }
             if let selectedRangeSlice {
                 selectedRange = selectedRange + selectedRangeSlice
             } else if UsageWindowMath.intersectsWindow(
@@ -182,9 +212,9 @@ actor CodexDataLoader {
             let current = modelMap[record.model] ?? (.zero, .zero, .zero, .zero, .zero)
             modelMap[record.model] = (
                 all: current.all + final,
-                thisMonth: current.thisMonth + thisMonthSlice,
-                lastMonth: current.lastMonth + lastMonthSlice,
-                today: current.today + todaySlice,
+                thisMonth: current.thisMonth + (thisMonthSlice ?? .zero),
+                lastMonth: current.lastMonth + (lastMonthSlice ?? .zero),
+                today: current.today + (todaySlice ?? .zero),
                 selectedRange: current.selectedRange + (selectedRangeSlice ?? .zero)
             )
 
@@ -195,9 +225,9 @@ actor CodexDataLoader {
                     model: record.model,
                     updatedAt: record.updatedAt,
                     allTime: final,
-                    thisMonth: thisMonthSlice,
-                    lastMonth: lastMonthSlice,
-                    today: todaySlice,
+                    thisMonth: thisMonthSlice ?? .zero,
+                    lastMonth: lastMonthSlice ?? .zero,
+                    today: todaySlice ?? .zero,
                     selectedRange: selectedRangeSlice ?? .zero
                 )
             )
@@ -225,6 +255,9 @@ actor CodexDataLoader {
             thisMonth: thisMonth,
             lastMonth: lastMonth,
             today: today,
+            thisMonthExcludedThreads: thisMonthExcludedThreads,
+            lastMonthExcludedThreads: lastMonthExcludedThreads,
+            todayExcludedThreads: todayExcludedThreads,
             selectedRange: selectedRange,
             selectedRangeLabel: selectedWindow.label,
             selectedRangeExcludedThreads: selectedRangeExcludedThreads,
