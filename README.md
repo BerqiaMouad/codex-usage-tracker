@@ -52,23 +52,6 @@ If a downloaded build is quarantined, users can remove the quarantine attribute:
 xattr -dr com.apple.quarantine /Applications/CodexUsageTracker.app
 ```
 
-## Sign and notarize for smooth distribution
-
-For team-wide installation without the Gatekeeper workaround, package with Apple signing and notarization:
-
-```bash
-export CODE_SIGN_IDENTITY="Developer ID Application: Your Company, Inc. (TEAMID)"
-export NOTARYTOOL_PROFILE="your-notarytool-profile"
-./script/package_release.sh both
-```
-
-The release script will:
-
-- sign the `.app`
-- build a `.zip` and/or `.dmg`
-- notarize the selected artifact when a notary profile is configured
-- staple the notarization ticket
-
 ## Notes
 
 - Cost is an estimate, not Codex billing truth
