@@ -8,7 +8,11 @@ struct MenuBarLabel: View {
             Text(menuTitle)
                 .font(.caption.monospacedDigit())
         } icon: {
-            Image(systemName: "chart.bar.xaxis")
+            if let menuBarIcon = AppResources.menuBarIcon {
+                Image(nsImage: menuBarIcon)
+            } else {
+                Image(systemName: "chart.bar.xaxis")
+            }
         }
     }
 
@@ -41,7 +45,7 @@ struct MenuBarContent: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
             } else {
-                ProgressView()
+                LoadingStatusView(message: "Scanning Codex usage")
             }
 
             Divider()

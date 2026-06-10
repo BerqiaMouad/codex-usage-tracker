@@ -17,6 +17,7 @@ enum SelfCheck {
         try assertClampedSubtraction()
         try assertDefaultPricingExists()
         try assertFractionalTimestampParsing()
+        try assertAppResourcesExist()
     }
 
     private static func assertCostEstimate() throws {
@@ -67,6 +68,16 @@ enum SelfCheck {
 
         guard formatter.date(from: "2026-06-10T11:57:24.623Z") != nil else {
             throw SelfCheckError.failed("Fractional ISO8601 timestamps should parse.")
+        }
+    }
+
+    private static func assertAppResourcesExist() throws {
+        guard Bundle.module.url(forResource: "CodexUsageTracker", withExtension: "icns") != nil else {
+            throw SelfCheckError.failed("Missing bundled app icon.")
+        }
+
+        guard Bundle.module.url(forResource: "CodexUsageTrackerMenuBar", withExtension: "png") != nil else {
+            throw SelfCheckError.failed("Missing bundled menu bar icon.")
         }
     }
 }

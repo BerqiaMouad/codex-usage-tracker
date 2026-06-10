@@ -29,6 +29,9 @@ struct CodexUsageTrackerApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        if let appIcon = AppResources.appIcon {
+            NSApp.applicationIconImage = appIcon
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows.first?.makeKeyAndOrderFront(nil)

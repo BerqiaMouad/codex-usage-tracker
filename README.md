@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Sources/CodexUsageTracker/Resources/CodexUsageTracker.iconset/icon_256x256.png" width="96" height="96" alt="Codex Usage Tracker app icon">
+</p>
+
 # Codex Usage Tracker
 
 Codex Usage Tracker is a native macOS app that reads local Codex session data from `~/.codex` and shows:
@@ -13,7 +17,7 @@ It intentionally excludes MiniMax usage from the totals.
 
 - macOS 14 or newer
 - Codex installed and used locally on the same Mac
-- Swift 6.3+ if you want to build from source
+- Swift 6.2+ if you want to build from source
 
 ## Run locally
 

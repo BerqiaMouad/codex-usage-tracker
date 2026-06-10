@@ -1,4 +1,4 @@
-// swift-tools-version: 6.3
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -13,6 +13,9 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CodexUsageTracker",
+            resources: [
+                .process("Resources"),
+            ],
             linkerSettings: [
                 .linkedLibrary("sqlite3"),
             ]

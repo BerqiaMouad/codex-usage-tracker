@@ -13,8 +13,10 @@ DIST_DIR="$ROOT_DIR/dist/release"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
+APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+RESOURCE_SOURCE="$ROOT_DIR/Sources/CodexUsageTracker/Resources"
 ARCHIVE_ZIP="$DIST_DIR/$APP_NAME-macOS.zip"
 ARCHIVE_DMG="$DIST_DIR/$APP_NAME-macOS.dmg"
 DMG_STAGING="$DIST_DIR/dmg-staging"
@@ -39,9 +41,11 @@ build_bundle() {
   build_binary="$(swift build -c release --show-bin-path)/$APP_NAME"
 
   rm -rf "$APP_BUNDLE"
-  mkdir -p "$APP_MACOS"
+  mkdir -p "$APP_MACOS" "$APP_RESOURCES"
   cp "$build_binary" "$APP_BINARY"
   chmod +x "$APP_BINARY"
+  cp "$RESOURCE_SOURCE/CodexUsageTracker.icns" "$APP_RESOURCES/"
+  cp "$RESOURCE_SOURCE/CodexUsageTrackerMenuBar.png" "$APP_RESOURCES/"
 
   cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -58,6 +62,8 @@ build_bundle() {
   <string>6.0</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>CodexUsageTracker</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
