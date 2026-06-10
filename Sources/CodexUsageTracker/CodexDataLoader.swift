@@ -12,7 +12,8 @@ struct ThreadRecord: Sendable {
 
 struct RolloutCheckpointSummary: Sendable {
     let final: UsageSlice?
-    let beforeMonth: UsageSlice?
+    let beforeCurrentMonth: UsageSlice?
+    let beforePreviousMonth: UsageSlice?
     let beforeDay: UsageSlice?
 }
 
@@ -20,9 +21,11 @@ actor RolloutCache {
     private struct Entry {
         let size: UInt64
         let modifiedAt: Date
-        let monthStart: Date
+        let currentMonthStart: Date
+        let previousMonthStart: Date
         let dayStart: Date
-        let needsMonthBoundary: Bool
+        let needsCurrentMonthBoundary: Bool
+        let needsPreviousMonthBoundary: Bool
         let needsDayBoundary: Bool
         let summary: RolloutCheckpointSummary
     }
@@ -31,9 +34,11 @@ actor RolloutCache {
 
     func summary(
         for path: String,
-        monthStart: Date,
+        currentMonthStart: Date,
+        previousMonthStart: Date,
         dayStart: Date,
-        needsMonthBoundary: Bool,
+        needsCurrentMonthBoundary: Bool,
+        needsPreviousMonthBoundary: Bool,
         needsDayBoundary: Bool
     ) throws -> RolloutCheckpointSummary {
         let url = URL(fileURLWithPath: path)
@@ -44,26 +49,32 @@ actor RolloutCache {
         if let cached = entries[path],
            cached.size == size,
            cached.modifiedAt == modifiedAt,
-           cached.monthStart == monthStart,
+           cached.currentMonthStart == currentMonthStart,
+           cached.previousMonthStart == previousMonthStart,
            cached.dayStart == dayStart,
-           cached.needsMonthBoundary == needsMonthBoundary,
+           cached.needsCurrentMonthBoundary == needsCurrentMonthBoundary,
+           cached.needsPreviousMonthBoundary == needsPreviousMonthBoundary,
            cached.needsDayBoundary == needsDayBoundary {
             return cached.summary
         }
 
         let summary = try RolloutParser.parse(
             path: path,
-            monthStart: monthStart,
+            currentMonthStart: currentMonthStart,
+            previousMonthStart: previousMonthStart,
             dayStart: dayStart,
-            needsMonthBoundary: needsMonthBoundary,
+            needsCurrentMonthBoundary: needsCurrentMonthBoundary,
+            needsPreviousMonthBoundary: needsPreviousMonthBoundary,
             needsDayBoundary: needsDayBoundary
         )
         entries[path] = Entry(
             size: size,
             modifiedAt: modifiedAt,
-            monthStart: monthStart,
+            currentMonthStart: currentMonthStart,
+            previousMonthStart: previousMonthStart,
             dayStart: dayStart,
-            needsMonthBoundary: needsMonthBoundary,
+            needsCurrentMonthBoundary: needsCurrentMonthBoundary,
+            needsPreviousMonthBoundary: needsPreviousMonthBoundary,
             needsDayBoundary: needsDayBoundary,
             summary: summary
         )
@@ -83,23 +94,28 @@ actor CodexDataLoader {
         let now = Date()
         let dayStart = calendar.startOfDay(for: now)
         let monthComponents = calendar.dateComponents([.year, .month], from: now)
-        let monthStart = calendar.date(from: monthComponents) ?? dayStart
+        let currentMonthStart = calendar.date(from: monthComponents) ?? dayStart
+        let previousMonthStart = calendar.date(byAdding: .month, value: -1, to: currentMonthStart) ?? currentMonthStart
 
         var allTime = UsageSlice.zero
-        var month = UsageSlice.zero
+        var thisMonth = UsageSlice.zero
+        var lastMonth = UsageSlice.zero
         var today = UsageSlice.zero
         var threadsWithDetailedBreakdown = 0
-        var modelMap: [String: (all: UsageSlice, month: UsageSlice, today: UsageSlice)] = [:]
+        var modelMap: [String: (all: UsageSlice, thisMonth: UsageSlice, lastMonth: UsageSlice, today: UsageSlice)] = [:]
         var threadUsage: [ThreadUsage] = []
 
         for record in records {
-            let needsMonthBoundary = record.updatedAt >= monthStart
+            let needsCurrentMonthBoundary = record.updatedAt >= currentMonthStart
+            let needsPreviousMonthBoundary = record.updatedAt >= previousMonthStart
             let needsDayBoundary = record.updatedAt >= dayStart
             let summary = try await rolloutCache.summary(
                 for: record.rolloutPath,
-                monthStart: monthStart,
+                currentMonthStart: currentMonthStart,
+                previousMonthStart: previousMonthStart,
                 dayStart: dayStart,
-                needsMonthBoundary: needsMonthBoundary,
+                needsCurrentMonthBoundary: needsCurrentMonthBoundary,
+                needsPreviousMonthBoundary: needsPreviousMonthBoundary,
                 needsDayBoundary: needsDayBoundary
             )
             let final = summary.final ?? UsageSlice(
@@ -109,19 +125,32 @@ actor CodexDataLoader {
                 outputTokens: 0,
                 reasoningOutputTokens: 0
             )
-            let monthSlice = usageWithinWindow(
+            let thisMonthSlice = UsageWindowMath.usageBetween(
                 final: final,
-                boundaryUsage: summary.beforeMonth,
+                startBoundaryUsage: summary.beforeCurrentMonth,
+                endBoundaryUsage: nil,
                 recordCreatedAt: record.createdAt,
                 recordUpdatedAt: record.updatedAt,
-                windowStart: monthStart
+                windowStart: currentMonthStart,
+                windowEnd: nil
             )
-            let todaySlice = usageWithinWindow(
+            let lastMonthSlice = UsageWindowMath.usageBetween(
                 final: final,
-                boundaryUsage: summary.beforeDay,
+                startBoundaryUsage: summary.beforePreviousMonth,
+                endBoundaryUsage: summary.beforeCurrentMonth,
                 recordCreatedAt: record.createdAt,
                 recordUpdatedAt: record.updatedAt,
-                windowStart: dayStart
+                windowStart: previousMonthStart,
+                windowEnd: currentMonthStart
+            )
+            let todaySlice = UsageWindowMath.usageBetween(
+                final: final,
+                startBoundaryUsage: summary.beforeDay,
+                endBoundaryUsage: nil,
+                recordCreatedAt: record.createdAt,
+                recordUpdatedAt: record.updatedAt,
+                windowStart: dayStart,
+                windowEnd: nil
             )
 
             if summary.final != nil {
@@ -129,13 +158,15 @@ actor CodexDataLoader {
             }
 
             allTime = allTime + final
-            month = month + monthSlice
+            thisMonth = thisMonth + thisMonthSlice
+            lastMonth = lastMonth + lastMonthSlice
             today = today + todaySlice
 
-            let current = modelMap[record.model] ?? (.zero, .zero, .zero)
+            let current = modelMap[record.model] ?? (.zero, .zero, .zero, .zero)
             modelMap[record.model] = (
                 all: current.all + final,
-                month: current.month + monthSlice,
+                thisMonth: current.thisMonth + thisMonthSlice,
+                lastMonth: current.lastMonth + lastMonthSlice,
                 today: current.today + todaySlice
             )
 
@@ -146,7 +177,8 @@ actor CodexDataLoader {
                     model: record.model,
                     updatedAt: record.updatedAt,
                     allTime: final,
-                    month: monthSlice,
+                    thisMonth: thisMonthSlice,
+                    lastMonth: lastMonthSlice,
                     today: todaySlice
                 )
             )
@@ -154,7 +186,7 @@ actor CodexDataLoader {
 
         let models = modelMap
             .map { key, value in
-                ModelUsage(modelName: key, allTime: value.all, month: value.month, today: value.today)
+                ModelUsage(modelName: key, allTime: value.all, thisMonth: value.thisMonth, lastMonth: value.lastMonth, today: value.today)
             }
             .sorted { $0.allTime.totalTokens > $1.allTime.totalTokens }
 
@@ -171,7 +203,8 @@ actor CodexDataLoader {
             generatedAt: now,
             codexHome: "~/.codex",
             allTime: allTime,
-            month: month,
+            thisMonth: thisMonth,
+            lastMonth: lastMonth,
             today: today,
             threadCount: records.count,
             threadsWithDetailedBreakdown: threadsWithDetailedBreakdown,
@@ -179,20 +212,61 @@ actor CodexDataLoader {
             recentThreads: Array(recentThreads)
         )
     }
+}
 
-    private func usageWithinWindow(
+enum UsageWindowMath {
+    static func usageBetween(
         final: UsageSlice,
-        boundaryUsage: UsageSlice?,
+        startBoundaryUsage: UsageSlice?,
+        endBoundaryUsage: UsageSlice?,
         recordCreatedAt: Date,
         recordUpdatedAt: Date,
-        windowStart: Date
+        windowStart: Date,
+        windowEnd: Date?
     ) -> UsageSlice {
         guard recordUpdatedAt >= windowStart else {
             return .zero
         }
-        if let boundaryUsage {
-            return final - boundaryUsage
+
+        let startCumulative = cumulativeUsage(
+            final: final,
+            boundaryUsage: startBoundaryUsage,
+            recordCreatedAt: recordCreatedAt,
+            recordUpdatedAt: recordUpdatedAt,
+            boundaryDate: windowStart
+        )
+
+        let endCumulative = if let windowEnd {
+            cumulativeUsage(
+                final: final,
+                boundaryUsage: endBoundaryUsage,
+                recordCreatedAt: recordCreatedAt,
+                recordUpdatedAt: recordUpdatedAt,
+                boundaryDate: windowEnd
+            )
+        } else {
+            final
         }
-        return recordCreatedAt >= windowStart ? final : .zero
+
+        return endCumulative - startCumulative
+    }
+
+    static func cumulativeUsage(
+        final: UsageSlice,
+        boundaryUsage: UsageSlice?,
+        recordCreatedAt: Date,
+        recordUpdatedAt: Date,
+        boundaryDate: Date
+    ) -> UsageSlice {
+        if recordUpdatedAt < boundaryDate {
+            return final
+        }
+        if let boundaryUsage {
+            return boundaryUsage
+        }
+        if recordCreatedAt >= boundaryDate {
+            return .zero
+        }
+        return .zero
     }
 }

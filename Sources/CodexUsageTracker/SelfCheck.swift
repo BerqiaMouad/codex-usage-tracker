@@ -17,6 +17,7 @@ enum SelfCheck {
         try assertClampedSubtraction()
         try assertDefaultPricingExists()
         try assertFractionalTimestampParsing()
+        try assertWindowMath()
     }
 
     private static func assertCostEstimate() throws {
@@ -67,6 +68,46 @@ enum SelfCheck {
 
         guard formatter.date(from: "2026-06-10T11:57:24.623Z") != nil else {
             throw SelfCheckError.failed("Fractional ISO8601 timestamps should parse.")
+        }
+    }
+
+    private static func assertWindowMath() throws {
+        let final = UsageSlice(
+            totalTokens: 600,
+            inputTokens: 500,
+            cachedInputTokens: 300,
+            outputTokens: 100,
+            reasoningOutputTokens: 20
+        )
+        let beforeCurrentMonth = UsageSlice(
+            totalTokens: 400,
+            inputTokens: 330,
+            cachedInputTokens: 200,
+            outputTokens: 70,
+            reasoningOutputTokens: 15
+        )
+        let beforePreviousMonth = UsageSlice(
+            totalTokens: 150,
+            inputTokens: 120,
+            cachedInputTokens: 60,
+            outputTokens: 30,
+            reasoningOutputTokens: 8
+        )
+        let createdAt = Date(timeIntervalSince1970: 100)
+        let updatedAt = Date(timeIntervalSince1970: 400)
+
+        let lastMonth = UsageWindowMath.usageBetween(
+            final: final,
+            startBoundaryUsage: beforePreviousMonth,
+            endBoundaryUsage: beforeCurrentMonth,
+            recordCreatedAt: createdAt,
+            recordUpdatedAt: updatedAt,
+            windowStart: Date(timeIntervalSince1970: 200),
+            windowEnd: Date(timeIntervalSince1970: 300)
+        )
+
+        guard lastMonth == beforeCurrentMonth - beforePreviousMonth else {
+            throw SelfCheckError.failed("Last-month usage window should use boundary-to-boundary subtraction.")
         }
     }
 }

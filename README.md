@@ -3,6 +3,7 @@
 Codex Usage Tracker is a native macOS app that reads local Codex session data from `~/.codex` and shows:
 
 - all-time, monthly, and daily authenticated OpenAI usage
+- date filter presets for all time, this month, last month, and today
 - model-by-model token breakdowns
 - recent tracked threads
 - estimated API-style cost using editable per-model rates

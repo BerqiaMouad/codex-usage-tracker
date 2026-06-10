@@ -5,7 +5,7 @@ final class UsageStore: ObservableObject {
     @Published var snapshot: UsageSnapshot?
     @Published var errorMessage: String?
     @Published var isRefreshing = false
-    @Published var selectedScope: UsageScope = .month
+    @Published var selectedFilter: UsageDateFilter = .thisMonth
     @Published var refreshInterval: Double {
         didSet {
             userDefaults.set(refreshInterval, forKey: refreshIntervalKey)

@@ -67,7 +67,8 @@ struct ThreadUsage: Identifiable, Equatable, Sendable {
     let model: String
     let updatedAt: Date
     let allTime: UsageSlice
-    let month: UsageSlice
+    let thisMonth: UsageSlice
+    let lastMonth: UsageSlice
     let today: UsageSlice
 }
 
@@ -75,7 +76,8 @@ struct ModelUsage: Identifiable, Equatable, Sendable {
     var id: String { modelName }
     let modelName: String
     let allTime: UsageSlice
-    let month: UsageSlice
+    let thisMonth: UsageSlice
+    let lastMonth: UsageSlice
     let today: UsageSlice
 }
 
@@ -83,7 +85,8 @@ struct UsageSnapshot: Equatable, Sendable {
     let generatedAt: Date
     let codexHome: String
     let allTime: UsageSlice
-    let month: UsageSlice
+    let thisMonth: UsageSlice
+    let lastMonth: UsageSlice
     let today: UsageSlice
     let threadCount: Int
     let threadsWithDetailedBreakdown: Int
@@ -91,21 +94,24 @@ struct UsageSnapshot: Equatable, Sendable {
     let recentThreads: [ThreadUsage]
 }
 
-enum UsageScope: String, CaseIterable, Identifiable {
+enum UsageDateFilter: String, CaseIterable, Identifiable {
     case allTime = "All Time"
-    case month = "This Month"
+    case thisMonth = "This Month"
+    case lastMonth = "Last Month"
     case today = "Today"
 
     var id: String { rawValue }
 }
 
 extension UsageSnapshot {
-    func usage(for scope: UsageScope) -> UsageSlice {
-        switch scope {
+    func usage(for filter: UsageDateFilter) -> UsageSlice {
+        switch filter {
         case .allTime:
             allTime
-        case .month:
-            month
+        case .thisMonth:
+            thisMonth
+        case .lastMonth:
+            lastMonth
         case .today:
             today
         }
@@ -113,12 +119,14 @@ extension UsageSnapshot {
 }
 
 extension ModelUsage {
-    func usage(for scope: UsageScope) -> UsageSlice {
-        switch scope {
+    func usage(for filter: UsageDateFilter) -> UsageSlice {
+        switch filter {
         case .allTime:
             allTime
-        case .month:
-            month
+        case .thisMonth:
+            thisMonth
+        case .lastMonth:
+            lastMonth
         case .today:
             today
         }
@@ -126,13 +134,13 @@ extension ModelUsage {
 }
 
 extension UsageSnapshot {
-    func cost(for scope: UsageScope, using pricingStore: PricingStore) -> Double {
+    func cost(for filter: UsageDateFilter, using pricingStore: PricingStore) -> Double {
         modelUsage.reduce(into: 0.0) { total, model in
-            total += model.usage(for: scope).estimatedCost(using: pricingStore.rates(for: model.modelName))
+            total += model.usage(for: filter).estimatedCost(using: pricingStore.rates(for: model.modelName))
         }
     }
 
-    func monthCost(using pricingStore: PricingStore) -> Double {
-        cost(for: .month, using: pricingStore)
+    func currentMonthCost(using pricingStore: PricingStore) -> Double {
+        cost(for: .thisMonth, using: pricingStore)
     }
 }
