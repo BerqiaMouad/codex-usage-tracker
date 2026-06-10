@@ -134,12 +134,8 @@ struct DashboardView: View {
     }
 
     private var loadingView: some View {
-        VStack(alignment: .center, spacing: 12) {
-            ProgressView()
-            Text("Scanning local Codex data...")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 320)
+        LoadingStatusView(message: "Scanning local Codex data")
+            .frame(maxWidth: .infinity, minHeight: 320)
     }
 
     private var emptyView: some View {
@@ -161,6 +157,49 @@ struct DashboardView: View {
         case .today:
             thread.today
         }
+    }
+}
+
+struct LoadingStatusView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(.regularMaterial)
+                    .frame(width: 72, height: 72)
+
+                if let appIcon = AppResources.appIcon {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 72, height: 72, alignment: .bottomTrailing)
+            }
+
+            VStack(spacing: 4) {
+                Text(message)
+                    .font(.headline)
+                Text("Reading local session history and pricing totals.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(message). Reading local session history and pricing totals.")
     }
 }
 
