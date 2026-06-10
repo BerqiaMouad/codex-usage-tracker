@@ -70,6 +70,7 @@ struct ThreadUsage: Identifiable, Equatable, Sendable {
     let thisMonth: UsageSlice
     let lastMonth: UsageSlice
     let today: UsageSlice
+    let selectedRange: UsageSlice
 }
 
 struct ModelUsage: Identifiable, Equatable, Sendable {
@@ -79,6 +80,7 @@ struct ModelUsage: Identifiable, Equatable, Sendable {
     let thisMonth: UsageSlice
     let lastMonth: UsageSlice
     let today: UsageSlice
+    let selectedRange: UsageSlice
 }
 
 struct UsageSnapshot: Equatable, Sendable {
@@ -88,6 +90,9 @@ struct UsageSnapshot: Equatable, Sendable {
     let thisMonth: UsageSlice
     let lastMonth: UsageSlice
     let today: UsageSlice
+    let selectedRange: UsageSlice
+    let selectedRangeLabel: String
+    let selectedRangeExcludedThreads: Int
     let threadCount: Int
     let threadsWithDetailedBreakdown: Int
     let modelUsage: [ModelUsage]
@@ -99,48 +104,37 @@ enum UsageDateFilter: String, CaseIterable, Identifiable {
     case thisMonth = "This Month"
     case lastMonth = "Last Month"
     case today = "Today"
+    case custom = "Custom Range"
 
     var id: String { rawValue }
 }
 
 extension UsageSnapshot {
-    func usage(for filter: UsageDateFilter) -> UsageSlice {
-        switch filter {
-        case .allTime:
-            allTime
-        case .thisMonth:
-            thisMonth
-        case .lastMonth:
-            lastMonth
-        case .today:
-            today
-        }
-    }
-}
-
-extension ModelUsage {
-    func usage(for filter: UsageDateFilter) -> UsageSlice {
-        switch filter {
-        case .allTime:
-            allTime
-        case .thisMonth:
-            thisMonth
-        case .lastMonth:
-            lastMonth
-        case .today:
-            today
-        }
-    }
-}
-
-extension UsageSnapshot {
     func cost(for filter: UsageDateFilter, using pricingStore: PricingStore) -> Double {
         modelUsage.reduce(into: 0.0) { total, model in
-            total += model.usage(for: filter).estimatedCost(using: pricingStore.rates(for: model.modelName))
+            let usage: UsageSlice = switch filter {
+            case .allTime:
+                model.allTime
+            case .thisMonth:
+                model.thisMonth
+            case .lastMonth:
+                model.lastMonth
+            case .today:
+                model.today
+            case .custom:
+                model.selectedRange
+            }
+            total += usage.estimatedCost(using: pricingStore.rates(for: model.modelName))
         }
     }
 
     func currentMonthCost(using pricingStore: PricingStore) -> Double {
         cost(for: .thisMonth, using: pricingStore)
+    }
+
+    func selectedRangeCost(using pricingStore: PricingStore) -> Double {
+        modelUsage.reduce(into: 0.0) { total, model in
+            total += model.selectedRange.estimatedCost(using: pricingStore.rates(for: model.modelName))
+        }
     }
 }

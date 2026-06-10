@@ -1,24 +1,14 @@
 import Foundation
 
 enum RolloutParser {
-    static func parse(
-        path: String,
-        currentMonthStart: Date,
-        previousMonthStart: Date,
-        dayStart: Date,
-        needsCurrentMonthBoundary: Bool,
-        needsPreviousMonthBoundary: Bool,
-        needsDayBoundary: Bool
-    ) throws -> RolloutCheckpointSummary {
+    static func parse(path: String, boundaries: [String: Date]) throws -> RolloutCheckpointSummary {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let url = URL(fileURLWithPath: path)
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
 
         var final: UsageSlice?
-        var beforeCurrentMonth: UsageSlice?
-        var beforePreviousMonth: UsageSlice?
-        var beforeDay: UsageSlice?
+        var boundaryUsage: [String: UsageSlice] = [:]
 
         func processLine(_ lineData: Data) {
             guard
@@ -43,17 +33,11 @@ enum RolloutParser {
             if final == nil {
                 final = snapshot
             }
-            if needsDayBoundary || needsCurrentMonthBoundary || needsPreviousMonthBoundary,
+            if !boundaries.isEmpty,
                let timestampString = object["timestamp"] as? String,
                let timestamp = formatter.date(from: timestampString) {
-                if needsDayBoundary, beforeDay == nil, timestamp < dayStart {
-                    beforeDay = snapshot
-                }
-                if needsCurrentMonthBoundary, beforeCurrentMonth == nil, timestamp < currentMonthStart {
-                    beforeCurrentMonth = snapshot
-                }
-                if needsPreviousMonthBoundary, beforePreviousMonth == nil, timestamp < previousMonthStart {
-                    beforePreviousMonth = snapshot
+                for (key, boundaryDate) in boundaries where boundaryUsage[key] == nil && timestamp < boundaryDate {
+                    boundaryUsage[key] = snapshot
                 }
             }
         }
@@ -67,10 +51,7 @@ enum RolloutParser {
                 let lineStart = data.index(after: index)
                 if lineStart < lineEnd {
                     processLine(data.subdata(in: lineStart..<lineEnd))
-                    let hasNeededDay = !needsDayBoundary || beforeDay != nil
-                    let hasNeededCurrentMonth = !needsCurrentMonthBoundary || beforeCurrentMonth != nil
-                    let hasNeededPreviousMonth = !needsPreviousMonthBoundary || beforePreviousMonth != nil
-                    if final != nil, hasNeededCurrentMonth, hasNeededPreviousMonth, hasNeededDay {
+                    if final != nil, boundaryUsage.count == boundaries.count {
                         break
                     }
                 }
@@ -84,9 +65,7 @@ enum RolloutParser {
 
         return RolloutCheckpointSummary(
             final: final,
-            beforeCurrentMonth: beforeCurrentMonth,
-            beforePreviousMonth: beforePreviousMonth,
-            beforeDay: beforeDay
+            boundaryUsage: boundaryUsage
         )
     }
 

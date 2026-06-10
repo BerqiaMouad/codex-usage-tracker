@@ -109,5 +109,19 @@ enum SelfCheck {
         guard lastMonth == beforeCurrentMonth - beforePreviousMonth else {
             throw SelfCheckError.failed("Last-month usage window should use boundary-to-boundary subtraction.")
         }
+
+        let unknownCarryIn = UsageWindowMath.usageBetween(
+            final: final,
+            startBoundaryUsage: nil,
+            endBoundaryUsage: beforeCurrentMonth,
+            recordCreatedAt: createdAt,
+            recordUpdatedAt: updatedAt,
+            windowStart: Date(timeIntervalSince1970: 200),
+            windowEnd: Date(timeIntervalSince1970: 300)
+        )
+
+        guard unknownCarryIn == nil else {
+            throw SelfCheckError.failed("Ranges should not silently assume zero when carry-in usage is unknown.")
+        }
     }
 }

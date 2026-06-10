@@ -36,8 +36,15 @@ struct DashboardView: View {
                             Text(filter.rawValue).tag(filter)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 420)
+                    .pickerStyle(.menu)
+                    .frame(width: 160)
+
+                    if store.selectedFilter == .custom {
+                        DatePicker("From", selection: $store.customStartDate, displayedComponents: [.date])
+                            .labelsHidden()
+                        DatePicker("To", selection: $store.customEndDate, displayedComponents: [.date])
+                            .labelsHidden()
+                    }
 
                     Button {
                         store.refreshNow()
@@ -57,6 +64,15 @@ struct DashboardView: View {
             Text(PricingConfiguration.pricingDisclaimer)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            if let snapshot = store.snapshot {
+                Text("Selected range: \(snapshot.selectedRangeLabel)")
+                    .font(.callout.weight(.medium))
+                if snapshot.selectedRangeExcludedThreads > 0 {
+                    Text("\(snapshot.selectedRangeExcludedThreads) older threads were excluded from the selected range because no pre-range checkpoint was available.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if let errorMessage = store.errorMessage {
                 Text(errorMessage)
                     .font(.callout)
@@ -84,10 +100,10 @@ struct DashboardView: View {
     }
 
     private func scopeSection(snapshot: UsageSnapshot) -> some View {
-        let usage = snapshot.usage(for: store.selectedFilter)
+        let usage = snapshot.selectedRange
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text("\(store.selectedFilter.rawValue) Breakdown")
+            Text("\(snapshot.selectedRangeLabel) Breakdown")
                 .font(.title3.weight(.semibold))
             HStack(spacing: 16) {
                 BreakdownStrip(label: "Total", value: Formatters.fullTokenCount(usage.totalTokens))
@@ -95,7 +111,7 @@ struct DashboardView: View {
                 BreakdownStrip(label: "Cached", value: Formatters.fullTokenCount(usage.cachedInputTokens))
                 BreakdownStrip(label: "Output", value: Formatters.fullTokenCount(usage.outputTokens))
                 BreakdownStrip(label: "Reasoning", value: Formatters.fullTokenCount(usage.reasoningOutputTokens))
-                BreakdownStrip(label: "Est. Cost", value: Formatters.currency(snapshot.cost(for: store.selectedFilter, using: pricingStore)))
+                BreakdownStrip(label: "Est. Cost", value: Formatters.currency(snapshot.selectedRangeCost(using: pricingStore)))
             }
         }
         .padding(20)
@@ -109,11 +125,10 @@ struct DashboardView: View {
 
             VStack(spacing: 10) {
                 ForEach(snapshot.modelUsage) { model in
-                    let usage = model.usage(for: store.selectedFilter)
                     ModelUsageRow(
                         modelName: model.modelName,
-                        usage: usage,
-                        cost: usage.estimatedCost(using: pricingStore.rates(for: model.modelName))
+                        usage: model.selectedRange,
+                        cost: model.selectedRange.estimatedCost(using: pricingStore.rates(for: model.modelName))
                     )
                 }
             }
@@ -128,7 +143,7 @@ struct DashboardView: View {
                 .font(.title3.weight(.semibold))
             VStack(spacing: 12) {
                 ForEach(snapshot.recentThreads) { thread in
-                    ThreadRow(thread: thread, usage: usageForFilter(thread, filter: store.selectedFilter))
+                    ThreadRow(thread: thread, usage: thread.selectedRange)
                 }
             }
         }
@@ -153,19 +168,6 @@ struct DashboardView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 260, alignment: .leading)
-    }
-
-    private func usageForFilter(_ thread: ThreadUsage, filter: UsageDateFilter) -> UsageSlice {
-        switch filter {
-        case .allTime:
-            thread.allTime
-        case .thisMonth:
-            thread.thisMonth
-        case .lastMonth:
-            thread.lastMonth
-        case .today:
-            thread.today
-        }
     }
 }
 
