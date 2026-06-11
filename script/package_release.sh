@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="CodexUsageTracker"
+EXECUTABLE_NAME="CodexUsageTracker"
+PRODUCT_NAME="CodexLens"
 BUNDLE_ID="io.github.berqiamouad.codex-usage-tracker"
 MIN_SYSTEM_VERSION="14.0"
 VERSION="${VERSION:-1.0.0}"
@@ -10,15 +11,15 @@ FORMAT="${1:-zip}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist/release"
-APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+APP_BUNDLE="$DIST_DIR/$PRODUCT_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
-APP_BINARY="$APP_MACOS/$APP_NAME"
+APP_BINARY="$APP_MACOS/$EXECUTABLE_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 RESOURCE_SOURCE="$ROOT_DIR/Sources/CodexUsageTracker/Resources"
-ARCHIVE_ZIP="$DIST_DIR/$APP_NAME-macOS.zip"
-ARCHIVE_DMG="$DIST_DIR/$APP_NAME-macOS.dmg"
+ARCHIVE_ZIP="$DIST_DIR/$PRODUCT_NAME-macOS.zip"
+ARCHIVE_DMG="$DIST_DIR/$PRODUCT_NAME-macOS.dmg"
 DMG_STAGING="$DIST_DIR/dmg-staging"
 SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
 NOTARY_PROFILE="${NOTARYTOOL_PROFILE:-}"
@@ -38,7 +39,7 @@ EOF
 build_bundle() {
   swift build -c release
   local build_binary
-  build_binary="$(swift build -c release --show-bin-path)/$APP_NAME"
+  build_binary="$(swift build -c release --show-bin-path)/$EXECUTABLE_NAME"
 
   rm -rf "$APP_BUNDLE"
   mkdir -p "$APP_MACOS" "$APP_RESOURCES"
@@ -55,13 +56,15 @@ build_bundle() {
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>$APP_NAME</string>
+  <string>$EXECUTABLE_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>$APP_NAME</string>
+  <string>$PRODUCT_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$PRODUCT_NAME</string>
   <key>CFBundleIconFile</key>
   <string>CodexUsageTracker</string>
   <key>CFBundlePackageType</key>
@@ -124,7 +127,7 @@ package_dmg() {
   ln -s /Applications "$DMG_STAGING/Applications"
 
   hdiutil create \
-    -volname "$APP_NAME" \
+    -volname "$PRODUCT_NAME" \
     -srcfolder "$DMG_STAGING" \
     -ov \
     -format UDZO \

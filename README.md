@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="Sources/CodexUsageTracker/Resources/CodexUsageTracker.iconset/icon_256x256.png" width="96" height="96" alt="Codex Usage Tracker app icon">
+  <img src="Sources/CodexUsageTracker/Resources/CodexUsageTracker.iconset/icon_256x256.png" width="96" height="96" alt="CodexLens app icon">
 </p>
 
-# Codex Usage Tracker
+# CodexLens
 
-Codex Usage Tracker is a native macOS app that reads local Codex session data from `~/.codex` and shows:
+CodexLens is a native macOS app that gives you a clear view of your local Codex usage. It reads session data from `~/.codex` and shows:
 
 - all-time, monthly, and daily authenticated OpenAI usage
 - model-by-model token breakdowns
@@ -12,6 +12,8 @@ Codex Usage Tracker is a native macOS app that reads local Codex session data fr
 - estimated API-style cost using editable per-model rates
 
 It intentionally excludes MiniMax usage from the totals.
+
+Use it when you want a fast menu bar answer to: how many tokens did I use, which models drove the total, and what would that usage cost at API-style rates?
 
 ## Requirements
 
@@ -46,14 +48,14 @@ Artifacts are written to `dist/release/`.
 Unsigned builds can work, but macOS Gatekeeper may warn on first launch.
 
 1. Open the `.dmg`
-2. Drag `CodexUsageTracker.app` to `Applications`
+2. Drag `CodexLens.app` to `Applications`
 3. Right-click the app in `Applications` and choose `Open`
 4. If needed, allow it in `System Settings -> Privacy & Security`
 
 If a downloaded build is quarantined, users can remove the quarantine attribute:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/CodexUsageTracker.app
+xattr -dr com.apple.quarantine /Applications/CodexLens.app
 ```
 
 ## Notes

@@ -28,7 +28,7 @@ struct DashboardView: View {
                 .padding(24)
             }
             .background(Color(nsColor: .windowBackgroundColor))
-            .navigationTitle("Codex Usage Tracker")
+            .navigationTitle("CodexLens")
             .toolbar {
                 ToolbarItemGroup {
                     Picker("Scope", selection: $store.selectedScope) {
@@ -52,7 +52,7 @@ struct DashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Native live view over your local authenticated Codex usage.")
+            Text("Local-first visibility into Codex tokens, threads, and estimated cost.")
                 .font(.title2.weight(.semibold))
             Text(PricingConfiguration.pricingDisclaimer)
                 .font(.callout)
@@ -68,7 +68,7 @@ struct DashboardView: View {
     private func summaryGrid(snapshot: UsageSnapshot) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
             GridRow {
-                SummaryCard(title: "All-Time Usage", usage: snapshot.allTime, cost: snapshot.cost(for: .allTime, using: pricingStore), accent: .blue)
+                SummaryCard(title: "All-Time Tokens", usage: snapshot.allTime, cost: snapshot.cost(for: .allTime, using: pricingStore), accent: .blue)
                 SummaryCard(title: "This Month", usage: snapshot.month, cost: snapshot.cost(for: .month, using: pricingStore), accent: .green)
                 SummaryCard(title: "Today", usage: snapshot.today, cost: snapshot.cost(for: .today, using: pricingStore), accent: .orange)
             }
@@ -190,7 +190,7 @@ struct LoadingStatusView: View {
             VStack(spacing: 4) {
                 Text(message)
                     .font(.headline)
-                Text("Reading local session history and pricing totals.")
+                Text("Reading local session history and pricing estimates.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -199,7 +199,7 @@ struct LoadingStatusView: View {
         .padding(24)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(message). Reading local session history and pricing totals.")
+        .accessibilityLabel("\(message). Reading local session history and pricing estimates.")
     }
 }
 
