@@ -6,7 +6,8 @@ struct PricingRates: Codable, Equatable, Sendable {
     var outputPerMillion: Double
 
     func estimatedCost(inputTokens: Int, cachedInputTokens: Int, outputTokens: Int) -> Double {
-        (Double(inputTokens) / 1_000_000.0 * inputPerMillion)
+        let billableInputTokens = max(0, inputTokens - cachedInputTokens)
+        return (Double(billableInputTokens) / 1_000_000.0 * inputPerMillion)
         + (Double(cachedInputTokens) / 1_000_000.0 * cachedInputPerMillion)
         + (Double(outputTokens) / 1_000_000.0 * outputPerMillion)
     }

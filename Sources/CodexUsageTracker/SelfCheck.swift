@@ -30,8 +30,8 @@ enum SelfCheck {
             reasoningOutputTokens: 50_000
         )
         let value = usage.estimatedCost(using: rates)
-        guard abs(value - 4.125) < 0.0001 else {
-            throw SelfCheckError.failed("Cost estimate mismatch: expected 4.125, got \(value)")
+        guard abs(value - 2.875) < 0.0001 else {
+            throw SelfCheckError.failed("Cost estimate mismatch: expected 2.875, got \(value)")
         }
     }
 
