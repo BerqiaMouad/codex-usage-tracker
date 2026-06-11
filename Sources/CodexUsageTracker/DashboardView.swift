@@ -31,13 +31,20 @@ struct DashboardView: View {
             .navigationTitle("Codex Usage Tracker")
             .toolbar {
                 ToolbarItemGroup {
-                    Picker("Scope", selection: $store.selectedScope) {
-                        ForEach(UsageScope.allCases) { scope in
-                            Text(scope.rawValue).tag(scope)
+                    Picker("Date Filter", selection: $store.selectedFilter) {
+                        ForEach(UsageDateFilter.allCases) { filter in
+                            Text(filter.rawValue).tag(filter)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 280)
+                    .pickerStyle(.menu)
+                    .frame(width: 160)
+
+                    if store.selectedFilter == .custom {
+                        DatePicker("From", selection: $store.customStartDate, displayedComponents: [.date])
+                            .labelsHidden()
+                        DatePicker("To", selection: $store.customEndDate, displayedComponents: [.date])
+                            .labelsHidden()
+                    }
 
                     Button {
                         store.refreshNow()
@@ -57,6 +64,15 @@ struct DashboardView: View {
             Text(PricingConfiguration.pricingDisclaimer)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            if let snapshot = store.snapshot {
+                Text("Selected range: \(snapshot.selectedRangeLabel)")
+                    .font(.callout.weight(.medium))
+                if snapshot.selectedRangeExcludedThreads > 0 {
+                    Text("\(snapshot.selectedRangeExcludedThreads) older threads were excluded from the selected range because no pre-range checkpoint was available.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if let errorMessage = store.errorMessage {
                 Text(errorMessage)
                     .font(.callout)
@@ -69,7 +85,10 @@ struct DashboardView: View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
             GridRow {
                 SummaryCard(title: "All-Time Usage", usage: snapshot.allTime, cost: snapshot.cost(for: .allTime, using: pricingStore), accent: .blue)
-                SummaryCard(title: "This Month", usage: snapshot.month, cost: snapshot.cost(for: .month, using: pricingStore), accent: .green)
+                SummaryCard(title: "This Month", usage: snapshot.thisMonth, cost: snapshot.cost(for: .thisMonth, using: pricingStore), accent: .green)
+            }
+            GridRow {
+                SummaryCard(title: "Selected Range", usage: snapshot.selectedRange, cost: snapshot.selectedRangeCost(using: pricingStore), accent: .mint)
                 SummaryCard(title: "Today", usage: snapshot.today, cost: snapshot.cost(for: .today, using: pricingStore), accent: .orange)
             }
             GridRow {
@@ -81,10 +100,10 @@ struct DashboardView: View {
     }
 
     private func scopeSection(snapshot: UsageSnapshot) -> some View {
-        let usage = snapshot.usage(for: store.selectedScope)
+        let usage = snapshot.selectedRange
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text("\(store.selectedScope.rawValue) Breakdown")
+            Text("\(snapshot.selectedRangeLabel) Breakdown")
                 .font(.title3.weight(.semibold))
             HStack(spacing: 16) {
                 BreakdownStrip(label: "Total", value: Formatters.fullTokenCount(usage.totalTokens))
@@ -92,7 +111,7 @@ struct DashboardView: View {
                 BreakdownStrip(label: "Cached", value: Formatters.fullTokenCount(usage.cachedInputTokens))
                 BreakdownStrip(label: "Output", value: Formatters.fullTokenCount(usage.outputTokens))
                 BreakdownStrip(label: "Reasoning", value: Formatters.fullTokenCount(usage.reasoningOutputTokens))
-                BreakdownStrip(label: "Est. Cost", value: Formatters.currency(snapshot.cost(for: store.selectedScope, using: pricingStore)))
+                BreakdownStrip(label: "Est. Cost", value: Formatters.currency(snapshot.selectedRangeCost(using: pricingStore)))
             }
         }
         .padding(20)
@@ -106,11 +125,10 @@ struct DashboardView: View {
 
             VStack(spacing: 10) {
                 ForEach(snapshot.modelUsage) { model in
-                    let usage = model.usage(for: store.selectedScope)
                     ModelUsageRow(
                         modelName: model.modelName,
-                        usage: usage,
-                        cost: usage.estimatedCost(using: pricingStore.rates(for: model.modelName))
+                        usage: model.selectedRange,
+                        cost: model.selectedRange.estimatedCost(using: pricingStore.rates(for: model.modelName))
                     )
                 }
             }
@@ -125,7 +143,7 @@ struct DashboardView: View {
                 .font(.title3.weight(.semibold))
             VStack(spacing: 12) {
                 ForEach(snapshot.recentThreads) { thread in
-                    ThreadRow(thread: thread, usage: usageForScope(thread, scope: store.selectedScope))
+                    ThreadRow(thread: thread, usage: thread.selectedRange)
                 }
             }
         }
@@ -150,17 +168,6 @@ struct DashboardView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 260, alignment: .leading)
-    }
-
-    private func usageForScope(_ thread: ThreadUsage, scope: UsageScope) -> UsageSlice {
-        switch scope {
-        case .allTime:
-            thread.allTime
-        case .month:
-            thread.month
-        case .today:
-            thread.today
-        }
     }
 }
 

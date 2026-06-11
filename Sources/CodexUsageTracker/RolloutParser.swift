@@ -1,21 +1,14 @@
 import Foundation
 
 enum RolloutParser {
-    static func parse(
-        path: String,
-        monthStart: Date,
-        dayStart: Date,
-        needsMonthBoundary: Bool,
-        needsDayBoundary: Bool
-    ) throws -> RolloutCheckpointSummary {
+    static func parse(path: String, boundaries: [String: Date]) throws -> RolloutCheckpointSummary {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let url = URL(fileURLWithPath: path)
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
 
         var final: UsageSlice?
-        var beforeMonth: UsageSlice?
-        var beforeDay: UsageSlice?
+        var boundaryUsage: [String: UsageSlice] = [:]
 
         func processLine(_ lineData: Data) {
             guard
@@ -40,14 +33,11 @@ enum RolloutParser {
             if final == nil {
                 final = snapshot
             }
-            if needsDayBoundary || needsMonthBoundary,
+            if !boundaries.isEmpty,
                let timestampString = object["timestamp"] as? String,
                let timestamp = formatter.date(from: timestampString) {
-                if needsDayBoundary, beforeDay == nil, timestamp < dayStart {
-                    beforeDay = snapshot
-                }
-                if needsMonthBoundary, beforeMonth == nil, timestamp < monthStart {
-                    beforeMonth = snapshot
+                for (key, boundaryDate) in boundaries where boundaryUsage[key] == nil && timestamp < boundaryDate {
+                    boundaryUsage[key] = snapshot
                 }
             }
         }
@@ -61,9 +51,7 @@ enum RolloutParser {
                 let lineStart = data.index(after: index)
                 if lineStart < lineEnd {
                     processLine(data.subdata(in: lineStart..<lineEnd))
-                    let hasNeededDay = !needsDayBoundary || beforeDay != nil
-                    let hasNeededMonth = !needsMonthBoundary || beforeMonth != nil
-                    if final != nil, hasNeededMonth, hasNeededDay {
+                    if final != nil, boundaryUsage.count == boundaries.count {
                         break
                     }
                 }
@@ -77,8 +65,7 @@ enum RolloutParser {
 
         return RolloutCheckpointSummary(
             final: final,
-            beforeMonth: beforeMonth,
-            beforeDay: beforeDay
+            boundaryUsage: boundaryUsage
         )
     }
 
