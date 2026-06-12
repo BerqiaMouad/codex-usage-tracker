@@ -17,6 +17,7 @@ enum SelfCheck {
         try assertClampedSubtraction()
         try assertDefaultPricingExists()
         try assertFractionalTimestampParsing()
+        try assertWindowMath()
         try assertAppResourcesExist()
     }
 
@@ -30,8 +31,8 @@ enum SelfCheck {
             reasoningOutputTokens: 50_000
         )
         let value = usage.estimatedCost(using: rates)
-        guard abs(value - 4.125) < 0.0001 else {
-            throw SelfCheckError.failed("Cost estimate mismatch: expected 4.125, got \(value)")
+        guard abs(value - 2.875) < 0.0001 else {
+            throw SelfCheckError.failed("Cost estimate mismatch: expected 2.875, got \(value)")
         }
     }
 
@@ -68,6 +69,60 @@ enum SelfCheck {
 
         guard formatter.date(from: "2026-06-10T11:57:24.623Z") != nil else {
             throw SelfCheckError.failed("Fractional ISO8601 timestamps should parse.")
+        }
+    }
+
+    private static func assertWindowMath() throws {
+        let final = UsageSlice(
+            totalTokens: 600,
+            inputTokens: 500,
+            cachedInputTokens: 300,
+            outputTokens: 100,
+            reasoningOutputTokens: 20
+        )
+        let endBoundary = UsageSlice(
+            totalTokens: 400,
+            inputTokens: 330,
+            cachedInputTokens: 200,
+            outputTokens: 70,
+            reasoningOutputTokens: 15
+        )
+        let startBoundary = UsageSlice(
+            totalTokens: 150,
+            inputTokens: 120,
+            cachedInputTokens: 60,
+            outputTokens: 30,
+            reasoningOutputTokens: 8
+        )
+        let createdAt = Date(timeIntervalSince1970: 100)
+        let updatedAt = Date(timeIntervalSince1970: 400)
+
+        let rangedUsage = UsageWindowMath.usageBetween(
+            final: final,
+            startBoundaryUsage: startBoundary,
+            endBoundaryUsage: endBoundary,
+            recordCreatedAt: createdAt,
+            recordUpdatedAt: updatedAt,
+            windowStart: Date(timeIntervalSince1970: 200),
+            windowEnd: Date(timeIntervalSince1970: 300)
+        )
+
+        guard rangedUsage == endBoundary - startBoundary else {
+            throw SelfCheckError.failed("Bounded usage windows should use boundary-to-boundary subtraction.")
+        }
+
+        let unknownCarryIn = UsageWindowMath.usageBetween(
+            final: final,
+            startBoundaryUsage: nil,
+            endBoundaryUsage: endBoundary,
+            recordCreatedAt: createdAt,
+            recordUpdatedAt: updatedAt,
+            windowStart: Date(timeIntervalSince1970: 200),
+            windowEnd: Date(timeIntervalSince1970: 300)
+        )
+
+        guard unknownCarryIn == nil else {
+            throw SelfCheckError.failed("Ranges should not silently assume zero when carry-in usage is unknown.")
         }
     }
 

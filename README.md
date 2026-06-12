@@ -7,6 +7,7 @@
 CodexLens is a native macOS app that gives you a clear view of your local Codex usage. It reads session data from `~/.codex` and shows:
 
 - all-time, monthly, and daily authenticated OpenAI usage
+- date filter presets plus a custom date range picker
 - model-by-model token breakdowns
 - recent tracked threads
 - estimated API-style cost using editable per-model rates

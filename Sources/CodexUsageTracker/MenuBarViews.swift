@@ -14,12 +14,12 @@ struct MenuBarLabel: View {
             Text(menuTitle)
                 .font(.caption.monospacedDigit())
         }
-        .accessibilityLabel("Codex Usage Tracker \(menuTitle)")
+        .accessibilityLabel("CodexLens \(menuTitle)")
     }
 
     private var menuTitle: String {
         guard let snapshot else { return "Codex" }
-        return Formatters.compactTokenCount(snapshot.month.totalTokens)
+        return Formatters.compactTokenCount(snapshot.thisMonth.totalTokens)
     }
 }
 
@@ -39,10 +39,10 @@ struct MenuBarContent: View {
                 Text("This Month")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
-                Text(Formatters.compactTokenCount(snapshot.month.totalTokens))
+                Text(Formatters.compactTokenCount(snapshot.thisMonth.totalTokens))
                     .font(.largeTitle.weight(.bold))
                     .monospacedDigit()
-                Text(Formatters.currency(snapshot.monthCost(using: pricingStore)))
+                Text(Formatters.currency(snapshot.currentMonthCost(using: pricingStore)))
                     .font(.headline)
                     .foregroundStyle(.secondary)
             } else {

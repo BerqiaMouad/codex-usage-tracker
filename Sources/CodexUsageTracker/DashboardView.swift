@@ -4,6 +4,16 @@ struct DashboardView: View {
     @ObservedObject var store: UsageStore
     @ObservedObject private var pricingStore: PricingStore
 
+    private let summaryColumns = [
+        GridItem(.adaptive(minimum: 280, maximum: 360), spacing: 16, alignment: .top)
+    ]
+    private let metricColumns = [
+        GridItem(.adaptive(minimum: 140), spacing: 12, alignment: .top)
+    ]
+    private let supportColumns = [
+        GridItem(.adaptive(minimum: 220), spacing: 16, alignment: .top)
+    ]
+
     init(store: UsageStore) {
         self.store = store
         _pricingStore = ObservedObject(wrappedValue: store.pricingStore)
@@ -16,7 +26,8 @@ struct DashboardView: View {
                     header
                     if let snapshot = store.snapshot {
                         summaryGrid(snapshot: snapshot)
-                        scopeSection(snapshot: snapshot)
+                        selectedRangeSection(snapshot: snapshot)
+                        supportSection(snapshot: snapshot)
                         modelSection(snapshot: snapshot)
                         threadSection(snapshot: snapshot)
                     } else if store.isRefreshing {
@@ -31,13 +42,10 @@ struct DashboardView: View {
             .navigationTitle("CodexLens")
             .toolbar {
                 ToolbarItemGroup {
-                    Picker("Scope", selection: $store.selectedScope) {
-                        ForEach(UsageScope.allCases) { scope in
-                            Text(scope.rawValue).tag(scope)
-                        }
+                    if store.isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 280)
 
                     Button {
                         store.refreshNow()
@@ -66,37 +74,146 @@ struct DashboardView: View {
     }
 
     private func summaryGrid(snapshot: UsageSnapshot) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
-            GridRow {
-                SummaryCard(title: "All-Time Tokens", usage: snapshot.allTime, cost: snapshot.cost(for: .allTime, using: pricingStore), accent: .blue)
-                SummaryCard(title: "This Month", usage: snapshot.month, cost: snapshot.cost(for: .month, using: pricingStore), accent: .green)
-                SummaryCard(title: "Today", usage: snapshot.today, cost: snapshot.cost(for: .today, using: pricingStore), accent: .orange)
-            }
-            GridRow {
-                MetaCard(title: "Tracked Threads", value: "\(snapshot.threadCount)", detail: "\(snapshot.threadsWithDetailedBreakdown) with full token breakdown")
-                MetaCard(title: "Last Refresh", value: Formatters.absoluteDate(snapshot.generatedAt), detail: snapshot.codexHome)
-                MetaCard(title: "Pricing Baseline", value: PricingConfiguration.sourceLabel, detail: PricingConfiguration.sourceURL.absoluteString)
-            }
+        LazyVGrid(columns: summaryColumns, alignment: .leading, spacing: 16) {
+            SummaryCard(title: "All-Time Tokens", usage: snapshot.allTime, cost: snapshot.cost(for: .allTime, using: pricingStore), accent: .blue)
+            SummaryCard(title: "This Month", usage: snapshot.thisMonth, cost: snapshot.cost(for: .thisMonth, using: pricingStore), accent: .green)
+            SummaryCard(title: "Today", usage: snapshot.today, cost: snapshot.cost(for: .today, using: pricingStore), accent: .orange)
         }
     }
 
-    private func scopeSection(snapshot: UsageSnapshot) -> some View {
-        let usage = snapshot.usage(for: store.selectedScope)
+    private func selectedRangeSection(snapshot: UsageSnapshot) -> some View {
+        let usage = snapshot.selectedRange
+        let cost = snapshot.selectedRangeCost(using: pricingStore)
 
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("\(store.selectedScope.rawValue) Breakdown")
-                .font(.title3.weight(.semibold))
-            HStack(spacing: 16) {
-                BreakdownStrip(label: "Total", value: Formatters.fullTokenCount(usage.totalTokens))
-                BreakdownStrip(label: "Input", value: Formatters.fullTokenCount(usage.inputTokens))
-                BreakdownStrip(label: "Cached", value: Formatters.fullTokenCount(usage.cachedInputTokens))
-                BreakdownStrip(label: "Output", value: Formatters.fullTokenCount(usage.outputTokens))
-                BreakdownStrip(label: "Reasoning", value: Formatters.fullTokenCount(usage.reasoningOutputTokens))
-                BreakdownStrip(label: "Est. Cost", value: Formatters.currency(snapshot.cost(for: store.selectedScope, using: pricingStore)))
+        return VStack(alignment: .leading, spacing: 20) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 20) {
+                    rangeControls(snapshot: snapshot)
+                    selectedRangeSummary(usage: usage, cost: cost)
+                }
+
+                VStack(alignment: .leading, spacing: 20) {
+                    rangeControls(snapshot: snapshot)
+                    selectedRangeSummary(usage: usage, cost: cost)
+                }
+            }
+
+            Divider()
+
+            LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
+                BreakdownTile(label: "Total", value: Formatters.fullTokenCount(usage.totalTokens))
+                BreakdownTile(label: "Input", value: Formatters.fullTokenCount(usage.inputTokens))
+                BreakdownTile(label: "Cached", value: Formatters.fullTokenCount(usage.cachedInputTokens))
+                BreakdownTile(label: "Output", value: Formatters.fullTokenCount(usage.outputTokens))
+                BreakdownTile(label: "Reasoning", value: Formatters.fullTokenCount(usage.reasoningOutputTokens))
+                BreakdownTile(label: "Est. Cost", value: Formatters.currency(cost))
             }
         }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(22)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func rangeControls(snapshot: UsageSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Date Range")
+                .font(.title3.weight(.semibold))
+
+            Picker("Date Filter", selection: $store.selectedFilter) {
+                ForEach(UsageDateFilter.allCases) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .controlSize(.large)
+
+            if store.selectedFilter == .custom {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        dateField(title: "From", selection: $store.customStartDate)
+                        dateField(title: "To", selection: $store.customEndDate)
+                    }
+
+                    VStack(spacing: 12) {
+                        dateField(title: "From", selection: $store.customStartDate)
+                        dateField(title: "To", selection: $store.customEndDate)
+                    }
+                }
+            }
+
+            Label(snapshot.selectedRangeLabel, systemImage: "calendar")
+                .font(.callout.weight(.medium))
+
+            if snapshot.selectedRangeExcludedThreads > 0 {
+                Label(
+                    "\(snapshot.selectedRangeExcludedThreads) older threads were excluded because no pre-range checkpoint was available.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func selectedRangeSummary(usage: UsageSlice, cost: Double) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Selected Range")
+                .font(.headline)
+
+            Text(Formatters.compactTokenCount(usage.totalTokens))
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .monospacedDigit()
+
+            Text("Estimated cost \(Formatters.currency(cost))")
+                .font(.subheadline.weight(.medium))
+
+            Divider()
+
+            HStack(spacing: 18) {
+                compactMetric(label: "Fresh", value: Formatters.compactTokenCount(usage.nonCachedTokens))
+                compactMetric(label: "Cached", value: Formatters.compactTokenCount(usage.cachedInputTokens))
+                compactMetric(label: "Output", value: Formatters.compactTokenCount(usage.outputTokens))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: 280, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func supportSection(snapshot: UsageSnapshot) -> some View {
+        LazyVGrid(columns: supportColumns, alignment: .leading, spacing: 16) {
+            SupportMetric(title: "Tracked Threads", value: "\(snapshot.threadCount)", detail: "\(snapshot.threadsWithDetailedBreakdown) with full token breakdown")
+            SupportMetric(title: "Last Refresh", value: Formatters.absoluteDate(snapshot.generatedAt), detail: snapshot.codexHome)
+            SupportMetric(title: "Pricing Baseline", value: PricingConfiguration.sourceLabel, detail: PricingConfiguration.sourceURL.absoluteString)
+        }
+        .padding(18)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func dateField(title: String, selection: Binding<Date>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            DatePicker("", selection: selection, displayedComponents: [.date])
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func compactMetric(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline.monospacedDigit())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func modelSection(snapshot: UsageSnapshot) -> some View {
@@ -106,11 +223,10 @@ struct DashboardView: View {
 
             VStack(spacing: 10) {
                 ForEach(snapshot.modelUsage) { model in
-                    let usage = model.usage(for: store.selectedScope)
                     ModelUsageRow(
                         modelName: model.modelName,
-                        usage: usage,
-                        cost: usage.estimatedCost(using: pricingStore.rates(for: model.modelName))
+                        usage: model.selectedRange,
+                        cost: model.selectedRange.estimatedCost(using: pricingStore.rates(for: model.modelName))
                     )
                 }
             }
@@ -125,7 +241,11 @@ struct DashboardView: View {
                 .font(.title3.weight(.semibold))
             VStack(spacing: 12) {
                 ForEach(snapshot.recentThreads) { thread in
-                    ThreadRow(thread: thread, usage: usageForScope(thread, scope: store.selectedScope))
+                    ThreadRow(
+                        thread: thread,
+                        usage: thread.selectedRange,
+                        cost: thread.selectedRange.estimatedCost(using: pricingStore.rates(for: thread.model))
+                    )
                 }
             }
         }
@@ -147,16 +267,43 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 260, alignment: .leading)
     }
+}
 
-    private func usageForScope(_ thread: ThreadUsage, scope: UsageScope) -> UsageSlice {
-        switch scope {
-        case .allTime:
-            thread.allTime
-        case .month:
-            thread.month
-        case .today:
-            thread.today
+private struct BreakdownTile: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline.monospacedDigit())
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct SupportMetric: View {
+    let title: String
+    let value: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            Text(value)
+                .font(.title3.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -200,43 +347,5 @@ struct LoadingStatusView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(message). Reading local session history and pricing estimates.")
-    }
-}
-
-private struct BreakdownStrip: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.headline.monospacedDigit())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct MetaCard: View {
-    let title: String
-    let value: String
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-            Text(value)
-                .font(.title3.weight(.semibold))
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 140, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

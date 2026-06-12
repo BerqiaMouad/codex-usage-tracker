@@ -3,6 +3,7 @@ import SwiftUI
 struct ThreadRow: View {
     let thread: ThreadUsage
     let usage: UsageSlice
+    let cost: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,6 +20,8 @@ struct ThreadRow: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(Formatters.compactTokenCount(usage.totalTokens))
                         .font(.headline.monospacedDigit())
+                    Text(Formatters.currency(cost))
+                        .font(.subheadline.weight(.medium))
                     Text(Formatters.absoluteDate(thread.updatedAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -26,6 +29,7 @@ struct ThreadRow: View {
             }
 
             HStack(spacing: 16) {
+                tag("Cost", Formatters.currency(cost))
                 tag("Input", Formatters.compactTokenCount(usage.inputTokens))
                 tag("Cached", Formatters.compactTokenCount(usage.cachedInputTokens))
                 tag("Output", Formatters.compactTokenCount(usage.outputTokens))
