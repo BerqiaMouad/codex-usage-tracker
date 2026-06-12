@@ -240,7 +240,11 @@ struct DashboardView: View {
                 .font(.title3.weight(.semibold))
             VStack(spacing: 12) {
                 ForEach(snapshot.recentThreads) { thread in
-                    ThreadRow(thread: thread, usage: thread.selectedRange)
+                    ThreadRow(
+                        thread: thread,
+                        usage: thread.selectedRange,
+                        cost: thread.selectedRange.estimatedCost(using: pricingStore.rates(for: thread.model))
+                    )
                 }
             }
         }
