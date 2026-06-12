@@ -82,7 +82,9 @@ PLIST
 
 sign_bundle_if_configured() {
   if [[ -z "$SIGN_IDENTITY" ]]; then
-    echo "Skipping codesign: CODE_SIGN_IDENTITY is not set."
+    echo "Ad-hoc signing bundle: CODE_SIGN_IDENTITY is not set."
+    codesign --force --deep --sign - "$APP_BUNDLE"
+    codesign --verify --deep --strict "$APP_BUNDLE"
     return
   fi
 
