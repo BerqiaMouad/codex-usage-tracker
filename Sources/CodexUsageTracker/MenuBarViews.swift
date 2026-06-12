@@ -14,7 +14,7 @@ struct MenuBarLabel: View {
             Text(menuTitle)
                 .font(.caption.monospacedDigit())
         }
-        .accessibilityLabel("Codex Usage Tracker \(menuTitle)")
+        .accessibilityLabel("CodexLens \(menuTitle)")
     }
 
     private var menuTitle: String {

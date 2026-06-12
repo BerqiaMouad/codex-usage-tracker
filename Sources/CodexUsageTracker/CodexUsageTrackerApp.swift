@@ -6,7 +6,7 @@ struct CodexUsageTrackerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup("Codex Usage Tracker") {
+        WindowGroup("CodexLens") {
             DashboardView(store: store)
                 .frame(minWidth: 1120, minHeight: 760)
         }
