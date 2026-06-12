@@ -4,12 +4,17 @@ struct MenuBarLabel: View {
     let snapshot: UsageSnapshot?
 
     var body: some View {
-        Label {
+        HStack(spacing: 4) {
+            Image("CodexUsageTrackerMenuBar", bundle: .module)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .accessibilityHidden(true)
             Text(menuTitle)
                 .font(.caption.monospacedDigit())
-        } icon: {
-            Image(systemName: "chart.bar.xaxis")
         }
+        .accessibilityLabel("Codex Usage Tracker \(menuTitle)")
     }
 
     private var menuTitle: String {
@@ -41,7 +46,7 @@ struct MenuBarContent: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
             } else {
-                ProgressView()
+                LoadingStatusView(message: "Scanning Codex usage")
             }
 
             Divider()

@@ -18,6 +18,7 @@ enum SelfCheck {
         try assertDefaultPricingExists()
         try assertFractionalTimestampParsing()
         try assertWindowMath()
+        try assertAppResourcesExist()
     }
 
     private static func assertCostEstimate() throws {
@@ -122,6 +123,24 @@ enum SelfCheck {
 
         guard unknownCarryIn == nil else {
             throw SelfCheckError.failed("Ranges should not silently assume zero when carry-in usage is unknown.")
+        }
+    }
+
+    private static func assertAppResourcesExist() throws {
+        guard Bundle.module.url(forResource: "CodexUsageTracker", withExtension: "icns") != nil else {
+            throw SelfCheckError.failed("Missing bundled app icon.")
+        }
+
+        guard Bundle.module.url(forResource: "CodexUsageTrackerMenuBar", withExtension: "png") != nil else {
+            throw SelfCheckError.failed("Missing bundled menu bar icon.")
+        }
+
+        guard Bundle.module.url(forResource: "VolumeIcon", withExtension: "icns") != nil else {
+            throw SelfCheckError.failed("Missing bundled DMG volume icon.")
+        }
+
+        guard Bundle.module.url(forResource: "dmg-background", withExtension: "png") != nil else {
+            throw SelfCheckError.failed("Missing bundled DMG background.")
         }
     }
 }
