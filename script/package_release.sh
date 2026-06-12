@@ -18,6 +18,7 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$EXECUTABLE_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 RESOURCE_SOURCE="$ROOT_DIR/Sources/CodexUsageTracker/Resources"
+DMG_RESOURCE_SOURCE="$RESOURCE_SOURCE/DMG"
 ARCHIVE_ZIP="$DIST_DIR/$PRODUCT_NAME-macOS.zip"
 ARCHIVE_DMG="$DIST_DIR/$PRODUCT_NAME-macOS.dmg"
 DMG_STAGING="$DIST_DIR/dmg-staging"
@@ -84,7 +85,9 @@ PLIST
 
 sign_bundle_if_configured() {
   if [[ -z "$SIGN_IDENTITY" ]]; then
-    echo "Skipping codesign: CODE_SIGN_IDENTITY is not set."
+    echo "Ad-hoc signing bundle: CODE_SIGN_IDENTITY is not set."
+    codesign --force --deep --sign - "$APP_BUNDLE"
+    codesign --verify --deep --strict "$APP_BUNDLE"
     return
   fi
 
@@ -126,12 +129,25 @@ package_dmg() {
   cp -R "$APP_BUNDLE" "$DMG_STAGING/"
   ln -s /Applications "$DMG_STAGING/Applications"
 
-  hdiutil create \
-    -volname "$PRODUCT_NAME" \
-    -srcfolder "$DMG_STAGING" \
-    -ov \
-    -format UDZO \
-    "$ARCHIVE_DMG"
+  if command -v create-dmg >/dev/null 2>&1; then
+    create-dmg \
+      --volname "$PRODUCT_NAME" \
+      --volicon "$DMG_RESOURCE_SOURCE/VolumeIcon.icns" \
+      --background "$DMG_RESOURCE_SOURCE/dmg-background.png" \
+      --window-size 660 420 \
+      --icon-size 128 \
+      --icon "$PRODUCT_NAME.app" 150 216 \
+      --app-drop-link 510 216 \
+      "$ARCHIVE_DMG" \
+      "$DMG_STAGING"
+  else
+    hdiutil create \
+      -volname "$PRODUCT_NAME" \
+      -srcfolder "$DMG_STAGING" \
+      -ov \
+      -format UDZO \
+      "$ARCHIVE_DMG"
+  fi
 
   notarize_if_configured "$ARCHIVE_DMG"
 }
